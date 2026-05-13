@@ -1,20 +1,11 @@
-method_name: noise_warmup_da
-experiment_name: default
-device: auto
-seed: 7
+experiment_name: officehome_resnet50_3seed
 
-command:
-  entrypoint: methods/noise_warmup_da/train.py
-  args: []
-
-checkpoint_policy:
-  save: false
-  directory: checkpoints
-  keep: none
-
-reproduction_goal: >
-  在 OfficeHome 四个域内分别比较随机初始化和 ImageNet 预训练 ResNet50，
-  观察训练前加入随机噪声 warmup 是否改变最终测试表现。
+system:
+  shutdown_on_finish: true
+  shutdown_command:
+    - shutdown
+    - -h
+    - now
 
 noise_warmup_da:
   dataset: officehome
@@ -30,8 +21,6 @@ noise_warmup_da:
     - 21
   image_size: 224
   test_fraction: 0.2
-  fake_train_size: 64
-  fake_test_size: 32
   num_classes: 65
   model: resnet50
   pretrained_weights: true

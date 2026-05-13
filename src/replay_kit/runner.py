@@ -183,6 +183,23 @@ def read_metrics_device(run_dir: Path) -> str | None:
     return str(value) if value else None
 
 
+def maybe_shutdown(config: dict[str, Any], metadata: dict[str, Any]) -> None:
+    system_config = config.get("system", {})
+    if not system_config.get("shutdown_on_finish", False):
+        return
+    command = system_config.get("shutdown_command", ["shutdown", "-h", "now"])
+    if isinstance(command, str):
+        command = shlex.split(command)
+    if not isinstance(command, list) or not command:
+        raise ValueError("system.shutdown_command must be a non-empty string or list")
+    print(
+        f"[runner] shutdown_on_finish enabled after status={metadata.get('status')}: "
+        f"{shell_join([str(item) for item in command])}",
+        flush=True,
+    )
+    subprocess.Popen([str(item) for item in command], cwd=REPO_ROOT)
+
+
 def worker(args: argparse.Namespace) -> int:
     run_dir = repo_path(args.run_dir)
     metadata_path = run_dir / "metadata.json"
@@ -235,6 +252,8 @@ def worker(args: argparse.Namespace) -> int:
             metadata["summary_path"] = str(summary_path)
             write_metadata(metadata_path, metadata)
             notify(run_dir, metadata)
+            config = load_config_snapshot(run_dir)
+            maybe_shutdown(config, metadata)
         except Exception:
             print("[runner] failed while generating summary or notification", flush=True)
             traceback.print_exc()

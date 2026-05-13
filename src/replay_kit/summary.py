@@ -38,6 +38,8 @@ def tail_text(path: str | Path, lines: int = 80) -> str:
 def format_metrics(metrics: dict[str, Any]) -> str:
     if not metrics:
         return "- metrics: 未生成"
+    if isinstance(metrics.get("aggregate"), dict):
+        return format_aggregate_metrics(metrics)
     if isinstance(metrics.get("arms"), dict):
         return format_multi_arm_metrics(metrics)
     rows = []
@@ -48,6 +50,46 @@ def format_metrics(metrics: dict[str, Any]) -> str:
         else:
             rows.append(f"- {key}: {value}")
     return "\n".join(rows)
+
+
+def format_aggregate_metrics(metrics: dict[str, Any]) -> str:
+    rows = [
+        f"- dataset: {metrics.get('dataset')}",
+        f"- domains: {metrics.get('domains')}",
+        f"- seeds: {metrics.get('seeds')}",
+        f"- model: {metrics.get('model')}",
+        f"- epochs: {metrics.get('epochs')}",
+        f"- warmup_epochs: {metrics.get('warmup_epochs')}",
+        "",
+        "| domain | arm | n | acc | nll | ece | final_train_loss |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for domain, arms in metrics["aggregate"].items():
+        for arm, summary in arms.items():
+            metric_summary = summary.get("metrics", {})
+            rows.append(
+                "| "
+                f"{domain} | "
+                f"{arm} | "
+                f"{summary.get('n', '')} | "
+                f"{_fmt_mean_std(metric_summary.get('accuracy'))} | "
+                f"{_fmt_mean_std(metric_summary.get('nll'))} | "
+                f"{_fmt_mean_std(metric_summary.get('ece'))} | "
+                f"{_fmt_mean_std(metric_summary.get('final_train_loss'))} |"
+            )
+    return "\n".join(rows)
+
+
+def _fmt_mean_std(summary: Any) -> str:
+    if not isinstance(summary, dict):
+        return ""
+    mean_value = summary.get("mean")
+    std_value = summary.get("std")
+    if mean_value is None:
+        return ""
+    if isinstance(mean_value, float) and isinstance(std_value, float):
+        return f"{mean_value:.4g} +/- {std_value:.3g}"
+    return str(mean_value)
 
 
 def format_multi_arm_metrics(metrics: dict[str, Any]) -> str:

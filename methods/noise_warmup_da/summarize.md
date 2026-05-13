@@ -2,9 +2,9 @@
 
 summary 至少包含：
 
-- dataset、source domain、target domain、model、seed；
+- OfficeHome 四个域、三个 seed、四个 arm 的覆盖情况；
+- dataset、domains、seeds、model；
 - requested device 和 actual device；
-- 四个 arm 的 source/target accuracy、NLL、ECE；
-- `noise_all_target_delta`、`noise_head_target_delta`、linear probe target delta；
-- 是否支持“随机噪声 warmup 破坏 pretrained transferable features”的假设；
+- 每个 domain/arm 的 accuracy、NLL、ECE、final train loss 的 mean/std；
+- 随机初始化与预训练、noise warmup 与 no warmup 的对比；
 - 失败时的 traceback 摘要。

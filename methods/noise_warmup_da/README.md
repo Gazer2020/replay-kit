@@ -1,15 +1,15 @@
 # noise_warmup_da
 
-`noise_warmup_da` 复用 `/root/noise-warmup/` 中的 OfficeHome 随机噪声 warmup 思路，作为 replay-kit 方法接入。核心问题是：在已有 ImageNet/source-domain 预训练表征后，继续用随机噪声图片和随机标签 warmup，是否会破坏可迁移特征。
+`noise_warmup_da` 复用 `/root/noise-warmup/` 中的随机噪声 warmup 思路，作为 replay-kit 方法接入。当前协议关注一个更直接的问题：随机初始化模型和 ImageNet 预训练模型，在 OfficeHome 单域训练/测试时，训练前加入随机噪声 warmup 是否会改变最终测试表现。
 
 ## 实验 arm
 
-- `source_pretrained`：在 source domain 监督训练后直接评估。
-- `pretrained_noise_all`：从 `source_pretrained` 出发，随机噪声 warmup 更新全部参数。
-- `pretrained_noise_head`：从 `source_pretrained` 出发，冻结 backbone，只更新分类头。
-- `random_init_noise_before_source`：随机初始化先噪声 warmup，再做 source 监督训练。
+- `random_init_train`：随机初始化 ResNet，在目标域 train split 上训练后测试。
+- `random_init_noise_train`：随机初始化 ResNet，先做随机噪声 warmup，再训练和测试。
+- `pretrained_train`：ImageNet 预训练 ResNet，直接训练和测试。
+- `pretrained_noise_train`：ImageNet 预训练 ResNet，先做随机噪声 warmup，再训练和测试。
 
-每个 arm 会记录 source/target 的 accuracy、NLL、ECE、avg confidence，并做 frozen-backbone linear probe。
+默认正式实验会在 OfficeHome 的 `Art`、`Clipart`、`Product`、`Real World` 四个域上分别做固定 seed 的分层 train/test split，跑 3 个 seed，并汇总 accuracy、NLL、ECE、average confidence 和 final train loss。
 
 ## 数据
 
@@ -31,26 +31,25 @@ data/OfficeHome/
 python -m replay_kit.runner launch --method noise_warmup_da --experiment debug --wait --timeout 120
 ```
 
-OfficeHome Art -> Clipart：
+正式实验：OfficeHome 四域、ResNet50、3 seeds，完成 summary 和飞书通知后关机。
 
 ```bash
-python -m replay_kit.runner launch --method noise_warmup_da --experiment default
+python -m replay_kit.runner launch --method noise_warmup_da --experiment officehome_resnet50_3seed
 ```
 
 常用覆盖：
 
 ```bash
 python -m replay_kit.runner launch --method noise_warmup_da --experiment default \
-  noise_warmup_da.model=resnet50 \
-  noise_warmup_da.source_epochs=5 \
+  noise_warmup_da.epochs=5 \
   noise_warmup_da.warmup_epochs=1 \
-  noise_warmup_da.linear_probe_epochs=3
+  noise_warmup_da.batch_size=32
 ```
 
 ## 产物
 
 训练脚本只写当前 run 目录：
 
-- `metrics.json`：四个 arm 的指标和关键 delta。
+- `metrics.json`：逐域、逐 seed、逐 arm 的结果和 aggregate。
 - `history.csv`：训练阶段、epoch、loss。
 - `checkpoints/`：仅在 `checkpoint_policy.save=true` 且 `noise_warmup_da.save_checkpoints=true` 时保存。

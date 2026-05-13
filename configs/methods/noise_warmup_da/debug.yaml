@@ -3,19 +3,21 @@ experiment_name: debug
 noise_warmup_da:
   dataset: fake
   data_root: data
-  source_domain: Art
-  target_domain: Clipart
+  domains:
+    - Debug
+  seeds:
+    - 7
   image_size: 32
   fake_train_size: 8
-  fake_eval_size: 4
+  fake_test_size: 4
   num_classes: 3
   model: resnet18
-  pretrained: false
+  pretrained_weights: false
   batch_size: 4
   num_workers: 0
-  source_epochs: 1
+  epochs: 1
   warmup_epochs: 1
-  linear_probe_epochs: 1
+  noise_steps_per_epoch: 1
   amp: false
   ece_bins: 5
   save_checkpoints: false
