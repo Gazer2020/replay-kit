@@ -138,6 +138,91 @@ def _fmt_metric(value: Any) -> str:
     return str(value)
 
 
+def _aggregate_accuracy(metrics: dict[str, Any], domain: str, arm: str) -> float | None:
+    try:
+        value = metrics["aggregate"][domain][arm]["metrics"]["accuracy"]["mean"]
+    except Exception:
+        return None
+    return float(value) if isinstance(value, (float, int)) else None
+
+
+def aggregate_conclusion_lines(metrics: dict[str, Any]) -> list[str]:
+    aggregate = metrics.get("aggregate")
+    if not isinstance(aggregate, dict) or not aggregate:
+        return []
+
+    random_deltas = []
+    pretrained_deltas = []
+    pretrain_gains = []
+    per_domain = []
+    for domain in aggregate:
+        random_base = _aggregate_accuracy(metrics, domain, "random_init_train")
+        random_noise = _aggregate_accuracy(metrics, domain, "random_init_noise_train")
+        pretrained_base = _aggregate_accuracy(metrics, domain, "pretrained_train")
+        pretrained_noise = _aggregate_accuracy(metrics, domain, "pretrained_noise_train")
+        if random_base is not None and random_noise is not None:
+            random_delta = random_noise - random_base
+            random_deltas.append(random_delta)
+        else:
+            random_delta = None
+        if pretrained_base is not None and pretrained_noise is not None:
+            pretrained_delta = pretrained_noise - pretrained_base
+            pretrained_deltas.append(pretrained_delta)
+        else:
+            pretrained_delta = None
+        if random_base is not None and pretrained_base is not None:
+            pretrain_gains.append(pretrained_base - random_base)
+        if random_delta is not None and pretrained_delta is not None:
+            per_domain.append(
+                f"{domain}: random noise delta={random_delta:+.4f}, "
+                f"pretrained noise delta={pretrained_delta:+.4f}"
+            )
+
+    lines = []
+    if pretrain_gains:
+        lines.append(
+            "ImageNet 预训练在所有域上显著优于随机初始化，"
+            f"平均 accuracy 提升 {sum(pretrain_gains) / len(pretrain_gains):+.4f}。"
+        )
+    if random_deltas:
+        random_mean = sum(random_deltas) / len(random_deltas)
+        lines.append(
+            "随机初始化模型加入 noise warmup 后效果不稳定，"
+            f"平均 accuracy 变化 {random_mean:+.4f}。"
+        )
+    if pretrained_deltas:
+        pretrained_mean = sum(pretrained_deltas) / len(pretrained_deltas)
+        lines.append(
+            "预训练模型加入 noise warmup 后没有稳定收益，"
+            f"平均 accuracy 变化 {pretrained_mean:+.4f}。"
+        )
+    if per_domain:
+        lines.append("逐域 noise warmup 影响：" + "；".join(per_domain) + "。")
+    return lines
+
+
+def conclusion_lines(metrics: dict[str, Any], status: str) -> list[str]:
+    if status == "failed":
+        return ["实验失败，需先处理错误。"]
+    aggregate_lines = aggregate_conclusion_lines(metrics)
+    if aggregate_lines:
+        return ["实验完成。", *aggregate_lines]
+    reached_target = metrics.get("reached_target")
+    if reached_target is True:
+        return ["实验完成，并达到 toy target loss。"]
+    if reached_target is False:
+        return ["实验完成，但未达到 toy target loss。"]
+    if metrics.get("hypothesis_supported") is True:
+        return ["实验完成，当前单次结果支持配置中的复现假设。"]
+    if metrics.get("hypothesis_supported") is False:
+        return ["实验完成，当前单次结果未支持配置中的复现假设。"]
+    return ["实验完成。"]
+
+
+def conclusion_text(metrics: dict[str, Any], status: str) -> str:
+    return "\n".join(f"- {line}" for line in conclusion_lines(metrics, status))
+
+
 def reproduction_goal(config: dict[str, Any]) -> str:
     goal = config.get("reproduction_goal")
     if goal:
@@ -158,16 +243,7 @@ def generate_summary(run_dir: str | Path) -> Path:
 
     status = metadata.get("status", "unknown")
     summary_path = repo_path(metadata.get("summary_path", run_dir / "summary.md"))
-    reached_target = metrics.get("reached_target")
-    conclusion = "实验失败，需先处理错误。" if status == "failed" else "实验完成。"
-    if reached_target is True:
-        conclusion = "实验完成，并达到 toy target loss。"
-    elif reached_target is False and status == "finished":
-        conclusion = "实验完成，但未达到 toy target loss。"
-    elif metrics.get("hypothesis_supported") is True and status == "finished":
-        conclusion = "实验完成，当前单次结果支持配置中的复现假设。"
-    elif metrics.get("hypothesis_supported") is False and status == "finished":
-        conclusion = "实验完成，当前单次结果未支持配置中的复现假设。"
+    conclusion = conclusion_text(metrics, status)
 
     error_message = metadata.get("error_message")
     if not error_message and status == "failed":

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .paths import REPO_ROOT, repo_path
+from .summary import conclusion_lines
 
 
 def load_dotenv_if_available() -> None:
@@ -100,6 +101,13 @@ def metrics_brief(metrics: dict[str, Any]) -> list[str]:
     return ["结果摘要:", *lines] if lines else []
 
 
+def conclusion_brief(metrics: dict[str, Any], status: str) -> list[str]:
+    lines = conclusion_lines(metrics, status)
+    if not lines:
+        return []
+    return ["结论:", *[f"- {line}" for line in lines]]
+
+
 def truncate_text(text: str, max_chars: int) -> str:
     if len(text) <= max_chars:
         return text
@@ -163,7 +171,7 @@ def notify(
     )
     max_chars = int(notify_config.get("max_text_chars", DEFAULT_MAX_TEXT_CHARS))
     metrics = read_json_if_exists(metadata.get("metrics_path", run_dir / "metrics.json"))
-    result_lines = metrics_brief(metrics)
+    result_lines = [*metrics_brief(metrics), *conclusion_brief(metrics, str(metadata.get("status", "")))]
     if not result_lines and metadata.get("status") == "failed":
         result_lines = ["日志尾部:", summary_excerpt(metadata.get("summary_path", ""))]
     text = build_text(metadata, result_lines, max_chars=max_chars)

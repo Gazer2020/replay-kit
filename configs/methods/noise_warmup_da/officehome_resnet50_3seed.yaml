@@ -3,7 +3,7 @@ experiment_name: officehome_resnet50_3seed
 notify:
   enabled: true
   real_send: true
-  max_text_chars: 1200
+  max_text_chars: 2000
   dry_run_on_missing_webhook: true
 
 system:

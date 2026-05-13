@@ -25,7 +25,7 @@ FEISHU_WEBHOOK="https://open.feishu.cn/open-apis/bot/v2/hook/..."
 notify:
   enabled: true
   real_send: true
-  max_text_chars: 1200
+  max_text_chars: 2000
 ```
 
 如果设置了 `REPLAY_KIT_NOTIFY_DRY_RUN=true`，即使 `notify.real_send=true` 且存在 webhook，
@@ -33,7 +33,7 @@ notify:
 
 ## 长消息
 
-飞书正文只发送紧凑摘要和 `summary.md` / `train.log` 路径，不发送完整 summary 表格。
+飞书正文发送紧凑结果摘要、结论和 `summary.md` / `train.log` 路径，不发送完整 summary 表格。
 `notify.max_text_chars` 控制正文长度预算；超过预算时会截短并提示查看 summary/log。
 
 ## Dry-run

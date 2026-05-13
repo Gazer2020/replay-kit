@@ -106,10 +106,12 @@ def test_notifier_uses_compact_metrics_brief(tmp_path: Path, monkeypatch) -> Non
     long_summary = "# 实验总结\n\n" + ("very long summary\n" * 300)
     summary_path.write_text(long_summary, encoding="utf-8")
     monkeypatch.setenv("FEISHU_WEBHOOK", "https://open.feishu.cn/open-apis/bot/v2/hook/test")
-    payload_path = notify(run_dir, metadata, {"enabled": True, "real_send": False, "max_text_chars": 500})
+    payload_path = notify(run_dir, metadata, {"enabled": True, "real_send": False, "max_text_chars": 1000})
     payload = json.loads(payload_path.read_text(encoding="utf-8"))
     text = payload["feishu_payload"]["content"]["text"]
-    assert len(text) <= 500
+    assert len(text) <= 1000
     assert "结果摘要(acc mean)" in text
+    assert "结论:" in text
+    assert "预训练" in text
     assert "Art: rand=0.1" in text
     assert "very long summary" not in text
