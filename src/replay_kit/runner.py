@@ -261,16 +261,36 @@ def worker(args: argparse.Namespace) -> int:
             environment=environment_snapshot(),
         )
     finally:
+        config: dict[str, Any] = {}
+        metadata: dict[str, Any] = {}
+        try:
+            config = load_config_snapshot(run_dir)
+            metadata = read_metadata(metadata_path)
+        except Exception:
+            print("[runner] failed while loading final config or metadata", flush=True)
+            traceback.print_exc()
+            return_code = return_code or 1
         try:
             summary_path = generate_summary(run_dir)
-            config = load_config_snapshot(run_dir)
             metadata = read_metadata(metadata_path)
             metadata["summary_path"] = str(summary_path)
             write_metadata(metadata_path, metadata)
+        except Exception:
+            print("[runner] failed while generating summary", flush=True)
+            traceback.print_exc()
+            return_code = return_code or 1
+        try:
+            metadata = read_metadata(metadata_path)
             notify(run_dir, metadata, config.get("notify", {}))
+        except Exception:
+            print("[runner] failed while sending notification", flush=True)
+            traceback.print_exc()
+            return_code = return_code or 1
+        try:
+            metadata = read_metadata(metadata_path)
             maybe_shutdown(config, metadata)
         except Exception:
-            print("[runner] failed while generating summary or notification", flush=True)
+            print("[runner] failed while requesting shutdown", flush=True)
             traceback.print_exc()
             return_code = return_code or 1
     print(f"[runner] worker finished with code {return_code}", flush=True)
