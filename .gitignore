@@ -1,0 +1,32 @@
+.env
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Local environments
+.venv/
+venv/
+env/
+
+# Experiment outputs and logs
+outputs/runs/
+*.log
+
+# Data and model artifacts: keep README files, ignore payloads.
+data/*/*
+!data/*/README.md
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.onnx
+
+# Editor noise
+.idea/
+.vscode/

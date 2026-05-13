@@ -1,0 +1,19 @@
+method_name: toy_torch
+experiment_name: default
+device: auto
+seed: 7
+
+command:
+  entrypoint: methods/toy_torch/train.py
+  args: []
+
+toy_torch:
+  num_samples: 128
+  input_dim: 8
+  hidden_dim: 16
+  output_dim: 1
+  epochs: 8
+  batch_size: 32
+  learning_rate: 0.05
+  force_fail: false
+  target_loss: 0.08

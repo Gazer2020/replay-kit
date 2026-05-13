@@ -1,0 +1,4 @@
+experiment_name: fail
+
+toy_torch:
+  force_fail: true

@@ -1,0 +1,26 @@
+project_name: replay-kit
+method_name: null
+experiment_name: null
+seed: 42
+device: auto
+gpu_id: 0
+output_root: outputs/runs
+
+command:
+  entrypoint: null
+  args: []
+
+checkpoint_policy:
+  save: false
+  directory: checkpoints
+  keep: none
+
+log_policy:
+  train_log_name: train.log
+
+summary:
+  log_tail_lines: 80
+
+notify:
+  enabled: true
+  dry_run_on_missing_webhook: true

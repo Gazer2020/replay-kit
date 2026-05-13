@@ -1,0 +1,8 @@
+experiment_name: debug
+
+toy_torch:
+  num_samples: 64
+  epochs: 3
+  batch_size: 16
+  learning_rate: 0.08
+  target_loss: 2.0
