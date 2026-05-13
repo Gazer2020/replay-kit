@@ -184,6 +184,26 @@ def read_metrics_device(run_dir: Path) -> str | None:
     return str(value) if value else None
 
 
+def record_postprocess_error(metadata_path: Path, stage: str, exc: Exception) -> None:
+    try:
+        metadata = read_metadata(metadata_path)
+        errors = metadata.get("postprocess_errors")
+        if not isinstance(errors, list):
+            errors = []
+        errors.append(
+            {
+                "stage": stage,
+                "time": utc_now(),
+                "message": str(exc),
+            }
+        )
+        metadata["postprocess_errors"] = errors
+        write_metadata(metadata_path, metadata)
+    except Exception:
+        print("[runner] failed while recording postprocess error", flush=True)
+        traceback.print_exc()
+
+
 def maybe_shutdown(config: dict[str, Any], metadata: dict[str, Any]) -> None:
     system_config = config.get("system", {})
     if not system_config.get("shutdown_on_finish", False):
@@ -266,32 +286,36 @@ def worker(args: argparse.Namespace) -> int:
         try:
             config = load_config_snapshot(run_dir)
             metadata = read_metadata(metadata_path)
-        except Exception:
+        except Exception as exc:
             print("[runner] failed while loading final config or metadata", flush=True)
             traceback.print_exc()
+            record_postprocess_error(metadata_path, "load_final_config_or_metadata", exc)
             return_code = return_code or 1
         try:
             summary_path = generate_summary(run_dir)
             metadata = read_metadata(metadata_path)
             metadata["summary_path"] = str(summary_path)
             write_metadata(metadata_path, metadata)
-        except Exception:
+        except Exception as exc:
             print("[runner] failed while generating summary", flush=True)
             traceback.print_exc()
+            record_postprocess_error(metadata_path, "summary", exc)
             return_code = return_code or 1
         try:
             metadata = read_metadata(metadata_path)
             notify(run_dir, metadata, config.get("notify", {}))
-        except Exception:
+        except Exception as exc:
             print("[runner] failed while sending notification", flush=True)
             traceback.print_exc()
+            record_postprocess_error(metadata_path, "notification", exc)
             return_code = return_code or 1
         try:
             metadata = read_metadata(metadata_path)
             maybe_shutdown(config, metadata)
-        except Exception:
+        except Exception as exc:
             print("[runner] failed while requesting shutdown", flush=True)
             traceback.print_exc()
+            record_postprocess_error(metadata_path, "shutdown", exc)
             return_code = return_code or 1
     print(f"[runner] worker finished with code {return_code}", flush=True)
     return return_code

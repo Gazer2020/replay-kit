@@ -12,7 +12,7 @@
 ## 成功标准
 
 - `metadata.status` 为 `finished`。
-- `train.log` 中出现四个域、三个 seed、四个 arm 的训练和评估日志。
+- 主实验 `officehome_resnet50_3seed` 的 `train.log` 中出现四个域、三个 seed、四个 arm 的训练和评估日志；收敛补充实验 `random_init_convergence` 中出现四个域、三个 seed、两个随机初始化 arm。
 - `metrics.json` 包含 `device`、`domains`、`seeds`、`results`、`aggregate`；收敛实验还应包含 `stopped_epoch`、`best_train_loss`、`converged`、`convergence_reason`。
 - `history.csv` 存在。
 - checkpoint 不应保存，除非配置显式同时打开 `checkpoint_policy.save` 和 `noise_warmup_da.save_checkpoints`。

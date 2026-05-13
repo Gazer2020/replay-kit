@@ -146,6 +146,7 @@ def initial_metadata(
         "checkpoint_path": str(checkpoint_dir) if checkpoint_policy.get("save") else None,
         "checkpoint_dir": str(checkpoint_dir),
         "error_message": None,
+        "postprocess_errors": [],
         "screen_session": None,
         "environment": environment_snapshot(),
     }

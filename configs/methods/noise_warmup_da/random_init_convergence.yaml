@@ -4,7 +4,6 @@ notify:
   enabled: true
   real_send: true
   max_text_chars: 2000
-  dry_run_on_missing_webhook: true
 
 system:
   shutdown_on_finish: true

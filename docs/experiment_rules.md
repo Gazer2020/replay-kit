@@ -23,6 +23,7 @@ outputs/runs/{method_name}/{experiment_name}/{run_id}/
 如果方法需要保存 checkpoint，只能写入当前 run 目录的 `checkpoints/` 子目录，不使用仓库根目录的独立 checkpoint 文件夹。
 
 `metadata.json` 会记录 `checkpoint_dir`；只有 `checkpoint_policy.save=true` 时，`checkpoint_path` 才指向该目录。
+summary、通知、关机等后处理失败时，runner 会追加 `postprocess_errors`，不覆盖训练本身的 `status`。
 
 ## 运行
 

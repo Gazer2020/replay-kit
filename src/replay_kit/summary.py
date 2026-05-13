@@ -40,8 +40,6 @@ def format_metrics(metrics: dict[str, Any]) -> str:
         return "- metrics: 未生成"
     if isinstance(metrics.get("aggregate"), dict):
         return format_aggregate_metrics(metrics)
-    if isinstance(metrics.get("arms"), dict):
-        return format_multi_arm_metrics(metrics)
     rows = []
     for key in sorted(metrics):
         value = metrics[key]
@@ -93,52 +91,6 @@ def _fmt_mean_std(summary: Any) -> str:
     if isinstance(mean_value, float) and isinstance(std_value, float):
         return f"{mean_value:.4g} +/- {std_value:.3g}"
     return str(mean_value)
-
-
-def format_multi_arm_metrics(metrics: dict[str, Any]) -> str:
-    rows = []
-    scalar_keys = [
-        "dataset",
-        "source_domain",
-        "target_domain",
-        "model",
-        "baseline_target_accuracy",
-        "noise_all_target_delta",
-        "noise_head_target_delta",
-        "noise_all_probe_target_delta",
-        "hypothesis_supported",
-    ]
-    for key in scalar_keys:
-        if key not in metrics:
-            continue
-        value = metrics[key]
-        rows.append(f"- {key}: {value:.6g}" if isinstance(value, float) else f"- {key}: {value}")
-
-    rows.append("")
-    rows.append("| arm | source_acc | target_acc | target_nll | target_ece | probe_target_acc |")
-    rows.append("| --- | ---: | ---: | ---: | ---: | ---: |")
-    for arm, arm_metrics in metrics["arms"].items():
-        source_eval = arm_metrics.get("source_eval", {})
-        target_eval = arm_metrics.get("target_eval", {})
-        probe_target = arm_metrics.get("linear_probe", {}).get("target_eval", {})
-        rows.append(
-            "| "
-            f"{arm} | "
-            f"{_fmt_metric(source_eval.get('accuracy'))} | "
-            f"{_fmt_metric(target_eval.get('accuracy'))} | "
-            f"{_fmt_metric(target_eval.get('nll'))} | "
-            f"{_fmt_metric(target_eval.get('ece'))} | "
-            f"{_fmt_metric(probe_target.get('accuracy'))} |"
-        )
-    return "\n".join(rows)
-
-
-def _fmt_metric(value: Any) -> str:
-    if isinstance(value, float):
-        return f"{value:.6g}"
-    if value is None:
-        return ""
-    return str(value)
 
 
 def _aggregate_accuracy(metrics: dict[str, Any], domain: str, arm: str) -> float | None:
