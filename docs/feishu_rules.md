@@ -32,13 +32,14 @@ notify:
 
 ## Dry-run
 
-未设置 `FEISHU_WEBHOOK` 时，runner 自动 dry-run，并写入：
+`notify.real_send=false`、未设置 `FEISHU_WEBHOOK`、或设置了 `REPLAY_KIT_NOTIFY_DRY_RUN=true` 时，
+runner 自动 dry-run，并写入：
 
 ```text
 notification_payload.json
 ```
 
-这使本地测试不依赖真实通知。
+这使 debug、smoke test 和方法可跑性测试不依赖真实通知，也不会误发群通知。
 
 ## 通知时机
 

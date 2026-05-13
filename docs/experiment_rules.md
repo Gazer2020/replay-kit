@@ -33,3 +33,8 @@ python -m replay_kit.runner launch --method toy_torch --experiment debug
 ```
 
 本地测试可追加 `--wait --timeout 120`。
+
+## 通知
+
+所有实验都会写 `notification_payload.json`。默认 `notify.real_send=false`，只做 dry-run；
+正式实验如需飞书通知，必须在实验配置中显式设置 `notify.real_send=true`。

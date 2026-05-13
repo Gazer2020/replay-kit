@@ -10,7 +10,8 @@
 - 正式实验只通过 `screen` runner 启动。
 - 修改已有方法前，先确认对应任务文件和配置文件。
 - 失败实验也要保留日志、metadata、summary 和通知 payload。
-- 飞书 webhook 只能通过 `FEISHU_WEBHOOK` 提供；缺失 webhook 时使用 dry-run 通知。
+- 飞书 webhook 只能通过 `FEISHU_WEBHOOK` 提供；默认 `notify.real_send=false`，debug、smoke 和方法可跑性测试只写 dry-run payload。
+- 只有正式实验或专门飞书联通测试可以设置 `notify.real_send=true` 真实发送。
 
 ## 新增方法流程
 

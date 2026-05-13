@@ -11,10 +11,12 @@
 - [x] 更新数据 README，并将真实数据通过软链接接到 `data/OfficeHome`。
 - [x] 跑通 debug 配置。
 - [x] 检查 run 目录产物。
-- [ ] 跑正式 `officehome_resnet50_3seed` 配置。
+- [ ] 正式 `officehome_resnet50_3seed` 配置运行中。
 
 ## 备注
 
 历史参考位于 `/root/noise-warmup/`；当前协议覆盖 OfficeHome 四域、四个训练 arm、三个 seed。
 
-latest debug run：`outputs/runs/noise_warmup_da/debug/20260513_172837_9127709_1a15`，状态 `finished`。
+latest debug run：`outputs/runs/noise_warmup_da/debug/20260513_173507_9f25ac5_1d62`，状态 `finished`，通知为 dry-run。
+
+正式 run：`outputs/runs/noise_warmup_da/officehome_resnet50_3seed/20260513_173208_9f25ac5_1bec`，状态 `running`。
