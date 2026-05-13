@@ -248,11 +248,11 @@ def worker(args: argparse.Namespace) -> int:
     finally:
         try:
             summary_path = generate_summary(run_dir)
+            config = load_config_snapshot(run_dir)
             metadata = read_metadata(metadata_path)
             metadata["summary_path"] = str(summary_path)
             write_metadata(metadata_path, metadata)
-            notify(run_dir, metadata)
-            config = load_config_snapshot(run_dir)
+            notify(run_dir, metadata, config.get("notify", {}))
             maybe_shutdown(config, metadata)
         except Exception:
             print("[runner] failed while generating summary or notification", flush=True)

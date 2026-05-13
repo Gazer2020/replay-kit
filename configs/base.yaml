@@ -23,4 +23,5 @@ summary:
 
 notify:
   enabled: true
+  real_send: false
   dry_run_on_missing_webhook: true

@@ -1,5 +1,10 @@
 experiment_name: officehome_resnet50_3seed
 
+notify:
+  enabled: true
+  real_send: true
+  dry_run_on_missing_webhook: true
+
 system:
   shutdown_on_finish: true
   shutdown_command:

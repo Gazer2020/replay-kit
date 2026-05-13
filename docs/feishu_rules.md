@@ -16,9 +16,19 @@ FEISHU_WEBHOOK="https://open.feishu.cn/open-apis/bot/v2/hook/..."
 
 不要把 webhook 写进 Git。
 
-如果设置了 `REPLAY_KIT_NOTIFY_DRY_RUN=true`，即使存在 webhook 也只会写
-`notification_payload.json`，不会真实发送。要启用真实通知，确保该变量未设置或不是
-`1/true/yes/on`。
+默认配置 `notify.real_send=false`，即使存在 webhook 也只会写
+`notification_payload.json`，不会真实发送。方法 debug、smoke test、可跑性测试应保持这个默认值。
+
+只有正式实验或专门做飞书联通测试时，才设置：
+
+```yaml
+notify:
+  enabled: true
+  real_send: true
+```
+
+如果设置了 `REPLAY_KIT_NOTIFY_DRY_RUN=true`，即使 `notify.real_send=true` 且存在 webhook，
+也只会写 `notification_payload.json`，不会真实发送。
 
 ## Dry-run
 

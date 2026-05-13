@@ -68,3 +68,16 @@ def test_notifier_dry_run_without_webhook(tmp_path: Path, monkeypatch) -> None:
     assert payload["dry_run"] is True
     assert payload["webhook_configured"] is False
     assert payload["event"] == "finished"
+
+
+def test_notifier_dry_run_when_real_send_disabled(tmp_path: Path, monkeypatch) -> None:
+    run_dir, metadata = make_run_dir(tmp_path)
+    summary_path = generate_summary(run_dir)
+    metadata["summary_path"] = str(summary_path)
+    monkeypatch.setenv("FEISHU_WEBHOOK", "https://open.feishu.cn/open-apis/bot/v2/hook/test")
+    monkeypatch.delenv("REPLAY_KIT_NOTIFY_DRY_RUN", raising=False)
+    payload_path = notify(run_dir, metadata, {"enabled": True, "real_send": False})
+    payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    assert payload["dry_run"] is True
+    assert payload["webhook_configured"] is True
+    assert payload["real_send"] is False
