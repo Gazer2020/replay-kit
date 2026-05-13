@@ -1,0 +1,43 @@
+method_name: noise_warmup_da
+experiment_name: default
+device: auto
+seed: 7
+
+command:
+  entrypoint: methods/noise_warmup_da/train.py
+  args: []
+
+checkpoint_policy:
+  save: false
+  directory: checkpoints
+  keep: none
+
+reproduction_goal: >
+  复现预训练域适应场景中的随机噪声 warmup 对比：先在 source domain
+  监督训练，再比较直接评估、全参数噪声 warmup、只训练分类头噪声 warmup、
+  随机初始化先噪声 warmup 后 source 训练四个 arm。
+
+noise_warmup_da:
+  dataset: officehome
+  data_root: data
+  source_domain: Art
+  target_domain: Clipart
+  image_size: 224
+  source_val_fraction: 0.2
+  fake_train_size: 64
+  fake_eval_size: 32
+  num_classes: 65
+  model: resnet18
+  pretrained: true
+  batch_size: 64
+  num_workers: 8
+  source_epochs: 20
+  warmup_epochs: 5
+  linear_probe_epochs: 10
+  lr: 0.0001
+  warmup_lr: 0.0001
+  probe_lr: 0.001
+  weight_decay: 0.0001
+  amp: true
+  ece_bins: 15
+  save_checkpoints: false

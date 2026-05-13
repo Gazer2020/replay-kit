@@ -16,7 +16,7 @@
 
 1. 在 `methods/{method_name}/` 新建方法代码、`README.md`、`AGENTS.md`、`summarize.md`。
 2. 在 `configs/methods/{method_name}/` 新建 `default.yaml` 和至少一个 `debug.yaml`。
-3. 在 `data/{method_name}/README.md` 说明数据来源、目录结构和软链接方式。
+3. 在 `data/README.md` 说明数据来源、目录结构和软链接方式。
 4. 用 debug 配置跑一次：
 
    ```bash

@@ -38,6 +38,8 @@ def tail_text(path: str | Path, lines: int = 80) -> str:
 def format_metrics(metrics: dict[str, Any]) -> str:
     if not metrics:
         return "- metrics: 未生成"
+    if isinstance(metrics.get("arms"), dict):
+        return format_multi_arm_metrics(metrics)
     rows = []
     for key in sorted(metrics):
         value = metrics[key]
@@ -46,6 +48,59 @@ def format_metrics(metrics: dict[str, Any]) -> str:
         else:
             rows.append(f"- {key}: {value}")
     return "\n".join(rows)
+
+
+def format_multi_arm_metrics(metrics: dict[str, Any]) -> str:
+    rows = []
+    scalar_keys = [
+        "dataset",
+        "source_domain",
+        "target_domain",
+        "model",
+        "baseline_target_accuracy",
+        "noise_all_target_delta",
+        "noise_head_target_delta",
+        "noise_all_probe_target_delta",
+        "hypothesis_supported",
+    ]
+    for key in scalar_keys:
+        if key not in metrics:
+            continue
+        value = metrics[key]
+        rows.append(f"- {key}: {value:.6g}" if isinstance(value, float) else f"- {key}: {value}")
+
+    rows.append("")
+    rows.append("| arm | source_acc | target_acc | target_nll | target_ece | probe_target_acc |")
+    rows.append("| --- | ---: | ---: | ---: | ---: | ---: |")
+    for arm, arm_metrics in metrics["arms"].items():
+        source_eval = arm_metrics.get("source_eval", {})
+        target_eval = arm_metrics.get("target_eval", {})
+        probe_target = arm_metrics.get("linear_probe", {}).get("target_eval", {})
+        rows.append(
+            "| "
+            f"{arm} | "
+            f"{_fmt_metric(source_eval.get('accuracy'))} | "
+            f"{_fmt_metric(target_eval.get('accuracy'))} | "
+            f"{_fmt_metric(target_eval.get('nll'))} | "
+            f"{_fmt_metric(target_eval.get('ece'))} | "
+            f"{_fmt_metric(probe_target.get('accuracy'))} |"
+        )
+    return "\n".join(rows)
+
+
+def _fmt_metric(value: Any) -> str:
+    if isinstance(value, float):
+        return f"{value:.6g}"
+    if value is None:
+        return ""
+    return str(value)
+
+
+def reproduction_goal(config: dict[str, Any]) -> str:
+    goal = config.get("reproduction_goal")
+    if goal:
+        return str(goal).strip()
+    return "验证轻量复现仓库的运行、记录、总结和通知链路。"
 
 
 def generate_summary(run_dir: str | Path) -> Path:
@@ -67,6 +122,10 @@ def generate_summary(run_dir: str | Path) -> Path:
         conclusion = "实验完成，并达到 toy target loss。"
     elif reached_target is False and status == "finished":
         conclusion = "实验完成，但未达到 toy target loss。"
+    elif metrics.get("hypothesis_supported") is True and status == "finished":
+        conclusion = "实验完成，当前单次结果支持配置中的复现假设。"
+    elif metrics.get("hypothesis_supported") is False and status == "finished":
+        conclusion = "实验完成，当前单次结果未支持配置中的复现假设。"
 
     error_message = metadata.get("error_message")
     if not error_message and status == "failed":
@@ -86,7 +145,7 @@ def generate_summary(run_dir: str | Path) -> Path:
         f"- 日志：{metadata.get('log_path')}",
         "",
         "## 复现目标",
-        "验证轻量复现仓库的运行、记录、总结和通知链路。",
+        reproduction_goal(config),
         "",
         "## 实验设置",
         f"- project：{metadata.get('project_name')}",

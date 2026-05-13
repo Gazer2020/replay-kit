@@ -7,7 +7,7 @@ Git 只保存目录结构和 README。
 真实数据通过软链接或本地路径映射：
 
 ```bash
-ln -s /mnt/datasets/my_dataset data/my_method
+ln -s /mnt/datasets/my_dataset data/my_dataset
 ```
 
 ## Checkpoint

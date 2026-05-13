@@ -61,7 +61,7 @@ def test_notifier_dry_run_without_webhook(tmp_path: Path, monkeypatch) -> None:
     run_dir, metadata = make_run_dir(tmp_path)
     summary_path = generate_summary(run_dir)
     metadata["summary_path"] = str(summary_path)
-    monkeypatch.delenv("FEISHU_WEBHOOK", raising=False)
+    monkeypatch.setenv("FEISHU_WEBHOOK", "")
     monkeypatch.delenv("REPLAY_KIT_NOTIFY_DRY_RUN", raising=False)
     payload_path = notify(run_dir, metadata)
     payload = json.loads(payload_path.read_text(encoding="utf-8"))

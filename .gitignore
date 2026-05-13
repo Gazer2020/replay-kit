@@ -19,8 +19,11 @@ outputs/runs/
 *.log
 
 # Data and model artifacts: keep README files, ignore payloads.
-data/*/*
+data/*
+!data/README.md
+!data/*/
 !data/*/README.md
+data/*/*
 *.pth
 *.pt
 *.ckpt

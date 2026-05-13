@@ -8,7 +8,17 @@
 export FEISHU_WEBHOOK="https://open.feishu.cn/open-apis/bot/v2/hook/..."
 ```
 
+也可以写在仓库根目录 `.env`，runner 在发送通知前会自动加载：
+
+```bash
+FEISHU_WEBHOOK="https://open.feishu.cn/open-apis/bot/v2/hook/..."
+```
+
 不要把 webhook 写进 Git。
+
+如果设置了 `REPLAY_KIT_NOTIFY_DRY_RUN=true`，即使存在 webhook 也只会写
+`notification_payload.json`，不会真实发送。要启用真实通知，确保该变量未设置或不是
+`1/true/yes/on`。
 
 ## Dry-run
 
