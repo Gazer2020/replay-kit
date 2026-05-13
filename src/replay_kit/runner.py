@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import os
 import re
@@ -197,7 +198,21 @@ def maybe_shutdown(config: dict[str, Any], metadata: dict[str, Any]) -> None:
         f"{shell_join([str(item) for item in command])}",
         flush=True,
     )
-    subprocess.Popen([str(item) for item in command], cwd=REPO_ROOT)
+    try:
+        subprocess.Popen([str(item) for item in command], cwd=REPO_ROOT)
+    except OSError as exc:
+        if exc.errno != errno.ENOEXEC:
+            raise
+        executable = shutil.which(str(command[0]))
+        if not executable:
+            raise
+        fallback = ["/bin/bash", executable, *[str(item) for item in command[1:]]]
+        print(
+            f"[runner] shutdown command is a shell script without shebang; "
+            f"retrying with {shell_join(fallback)}",
+            flush=True,
+        )
+        subprocess.Popen(fallback, cwd=REPO_ROOT)
 
 
 def worker(args: argparse.Namespace) -> int:
