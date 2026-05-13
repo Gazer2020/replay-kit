@@ -81,3 +81,35 @@ def test_notifier_dry_run_when_real_send_disabled(tmp_path: Path, monkeypatch) -
     assert payload["dry_run"] is True
     assert payload["webhook_configured"] is True
     assert payload["real_send"] is False
+
+
+def test_notifier_uses_compact_metrics_brief(tmp_path: Path, monkeypatch) -> None:
+    run_dir, metadata = make_run_dir(tmp_path)
+    summary_path = generate_summary(run_dir)
+    metadata["summary_path"] = str(summary_path)
+    metrics_path = run_dir / "metrics.json"
+    metrics_path.write_text(
+        json.dumps(
+            {
+                "aggregate": {
+                    "Art": {
+                        "random_init_train": {"metrics": {"accuracy": {"mean": 0.1}}},
+                        "random_init_noise_train": {"metrics": {"accuracy": {"mean": 0.2}}},
+                        "pretrained_train": {"metrics": {"accuracy": {"mean": 0.8}}},
+                        "pretrained_noise_train": {"metrics": {"accuracy": {"mean": 0.81}}},
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    long_summary = "# 实验总结\n\n" + ("very long summary\n" * 300)
+    summary_path.write_text(long_summary, encoding="utf-8")
+    monkeypatch.setenv("FEISHU_WEBHOOK", "https://open.feishu.cn/open-apis/bot/v2/hook/test")
+    payload_path = notify(run_dir, metadata, {"enabled": True, "real_send": False, "max_text_chars": 500})
+    payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    text = payload["feishu_payload"]["content"]["text"]
+    assert len(text) <= 500
+    assert "结果摘要(acc mean)" in text
+    assert "Art: rand=0.1" in text
+    assert "very long summary" not in text

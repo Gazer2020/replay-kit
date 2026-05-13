@@ -24,4 +24,5 @@ summary:
 notify:
   enabled: true
   real_send: false
+  max_text_chars: 1200
   dry_run_on_missing_webhook: true

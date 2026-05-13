@@ -16,7 +16,22 @@ def load_dotenv_if_available() -> None:
     load_dotenv(REPO_ROOT / ".env")
 
 
-def summary_excerpt(summary_path: str | Path, max_chars: int = 1200) -> str:
+DEFAULT_MAX_TEXT_CHARS = 1200
+
+
+def read_json_if_exists(path: str | Path) -> dict[str, Any]:
+    path = repo_path(path)
+    if not path.exists():
+        return {}
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def summary_excerpt(summary_path: str | Path, max_chars: int = 600) -> str:
     path = repo_path(summary_path)
     if not path.exists():
         return ""
@@ -26,7 +41,78 @@ def summary_excerpt(summary_path: str | Path, max_chars: int = 1200) -> str:
     return text[:max_chars].rstrip() + "\n..."
 
 
-def build_text(metadata: dict[str, Any], summary_text: str) -> str:
+def format_float(value: Any) -> str:
+    if isinstance(value, (float, int)):
+        return f"{float(value):.4g}"
+    return str(value)
+
+
+def aggregate_brief(metrics: dict[str, Any]) -> list[str]:
+    aggregate = metrics.get("aggregate")
+    if not isinstance(aggregate, dict) or not aggregate:
+        return []
+    arm_labels = {
+        "random_init_train": "rand",
+        "random_init_noise_train": "rand+noise",
+        "pretrained_train": "pre",
+        "pretrained_noise_train": "pre+noise",
+    }
+    lines = ["结果摘要(acc mean):"]
+    for domain, arms in aggregate.items():
+        if not isinstance(arms, dict):
+            continue
+        parts = []
+        for arm, label in arm_labels.items():
+            summary = arms.get(arm, {})
+            value = (
+                summary.get("metrics", {})
+                .get("accuracy", {})
+                .get("mean")
+                if isinstance(summary, dict)
+                else None
+            )
+            if value is not None:
+                parts.append(f"{label}={format_float(value)}")
+        if parts:
+            lines.append(f"- {domain}: " + ", ".join(parts))
+    return lines if len(lines) > 1 else []
+
+
+def metrics_brief(metrics: dict[str, Any]) -> list[str]:
+    aggregate_lines = aggregate_brief(metrics)
+    if aggregate_lines:
+        return aggregate_lines
+    if not metrics:
+        return []
+    scalar_keys = [
+        "final_loss",
+        "best_loss",
+        "reached_target",
+        "accuracy",
+        "nll",
+        "ece",
+        "device",
+    ]
+    lines = []
+    for key in scalar_keys:
+        if key in metrics:
+            lines.append(f"- {key}: {format_float(metrics[key])}")
+    return ["结果摘要:", *lines] if lines else []
+
+
+def truncate_text(text: str, max_chars: int) -> str:
+    if len(text) <= max_chars:
+        return text
+    marker = "\n...（通知已截短，完整内容见 summary/log 路径）"
+    keep = max(0, max_chars - len(marker))
+    return text[:keep].rstrip() + marker
+
+
+def build_text(
+    metadata: dict[str, Any],
+    result_lines: list[str] | None = None,
+    max_chars: int = DEFAULT_MAX_TEXT_CHARS,
+) -> str:
     status = metadata.get("status")
     title = "实验完成" if status == "finished" else "实验失败"
     lines = [
@@ -44,9 +130,9 @@ def build_text(metadata: dict[str, Any], summary_text: str) -> str:
     ]
     if metadata.get("error_message"):
         lines.append(f"error: {metadata.get('error_message')}")
-    if summary_text:
-        lines.extend(["", summary_text])
-    return "\n".join(lines)
+    if result_lines:
+        lines.extend(["", *result_lines])
+    return truncate_text("\n".join(lines), max_chars)
 
 
 def truthy(value: Any) -> bool:
@@ -75,7 +161,12 @@ def notify(
         or explicit_dry_run in {"1", "true", "yes", "on"}
         or not webhook
     )
-    text = build_text(metadata, summary_excerpt(metadata.get("summary_path", "")))
+    max_chars = int(notify_config.get("max_text_chars", DEFAULT_MAX_TEXT_CHARS))
+    metrics = read_json_if_exists(metadata.get("metrics_path", run_dir / "metrics.json"))
+    result_lines = metrics_brief(metrics)
+    if not result_lines and metadata.get("status") == "failed":
+        result_lines = ["日志尾部:", summary_excerpt(metadata.get("summary_path", ""))]
+    text = build_text(metadata, result_lines, max_chars=max_chars)
     feishu_payload = {
         "msg_type": "text",
         "content": {"text": text},
