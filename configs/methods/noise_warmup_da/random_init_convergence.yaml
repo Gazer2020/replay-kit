@@ -1,0 +1,55 @@
+experiment_name: random_init_convergence
+
+notify:
+  enabled: true
+  real_send: true
+  max_text_chars: 2000
+  dry_run_on_missing_webhook: true
+
+system:
+  shutdown_on_finish: true
+  shutdown_command:
+    - shutdown
+    - -h
+    - now
+
+reproduction_goal: >
+  补充验证随机初始化 ResNet50 在 OfficeHome 四域上是否因 20 epoch 未收敛而表现较差；
+  只比较 random_init_train 与 random_init_noise_train，使用更大学习率和更长训练，并按训练
+  loss 目标或 plateau 条件停止。
+
+noise_warmup_da:
+  dataset: officehome
+  data_root: data
+  domains:
+    - Art
+    - Clipart
+    - Product
+    - Real World
+  seeds:
+    - 7
+    - 13
+    - 21
+  run_arms:
+    - random_init_train
+    - random_init_noise_train
+  image_size: 224
+  test_fraction: 0.2
+  num_classes: 65
+  model: resnet50
+  pretrained_weights: false
+  batch_size: 128
+  num_workers: 12
+  epochs: 200
+  min_epochs: 60
+  convergence_patience: 20
+  convergence_min_delta: 0.0005
+  target_train_loss: 0.03
+  warmup_epochs: 5
+  noise_steps_per_epoch: null
+  lr: 0.001
+  warmup_lr: 0.001
+  weight_decay: 0.0001
+  amp: true
+  ece_bins: 15
+  save_checkpoints: false

@@ -37,6 +37,13 @@ python -m replay_kit.runner launch --method noise_warmup_da --experiment debug -
 python -m replay_kit.runner launch --method noise_warmup_da --experiment officehome_resnet50_3seed
 ```
 
+随机初始化收敛补充实验：只跑 `random_init_train` 和 `random_init_noise_train`，使用更高学习率、更长
+max epoch，并按 train loss 目标或 plateau 停止。
+
+```bash
+python -m replay_kit.runner launch --method noise_warmup_da --experiment random_init_convergence
+```
+
 常用覆盖：
 
 ```bash
@@ -51,5 +58,5 @@ python -m replay_kit.runner launch --method noise_warmup_da --experiment default
 训练脚本只写当前 run 目录：
 
 - `metrics.json`：逐域、逐 seed、逐 arm 的结果和 aggregate。
-- `history.csv`：训练阶段、epoch、loss。
+- `history.csv`：训练阶段、epoch、loss、best loss 和 stale epoch。
 - `checkpoints/`：仅在 `checkpoint_policy.save=true` 且 `noise_warmup_da.save_checkpoints=true` 时保存。

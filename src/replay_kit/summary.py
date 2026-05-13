@@ -61,8 +61,8 @@ def format_aggregate_metrics(metrics: dict[str, Any]) -> str:
         f"- epochs: {metrics.get('epochs')}",
         f"- warmup_epochs: {metrics.get('warmup_epochs')}",
         "",
-        "| domain | arm | n | acc | nll | ece | final_train_loss |",
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
+        "| domain | arm | n | converged | stopped_epoch | acc | nll | ece | final_train_loss | best_train_loss |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for domain, arms in metrics["aggregate"].items():
         for arm, summary in arms.items():
@@ -72,10 +72,13 @@ def format_aggregate_metrics(metrics: dict[str, Any]) -> str:
                 f"{domain} | "
                 f"{arm} | "
                 f"{summary.get('n', '')} | "
+                f"{summary.get('converged_count', '')} | "
+                f"{_fmt_mean_std(metric_summary.get('stopped_epoch'))} | "
                 f"{_fmt_mean_std(metric_summary.get('accuracy'))} | "
                 f"{_fmt_mean_std(metric_summary.get('nll'))} | "
                 f"{_fmt_mean_std(metric_summary.get('ece'))} | "
-                f"{_fmt_mean_std(metric_summary.get('final_train_loss'))} |"
+                f"{_fmt_mean_std(metric_summary.get('final_train_loss'))} | "
+                f"{_fmt_mean_std(metric_summary.get('best_train_loss'))} |"
             )
     return "\n".join(rows)
 

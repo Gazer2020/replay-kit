@@ -38,6 +38,7 @@ ARMS = (
 def run_experiment(config: ExperimentConfig) -> dict[str, Any]:
     device = resolve_device(config.device)
     config.run_dir.mkdir(parents=True, exist_ok=True)
+    arms = selected_arms(config)
 
     histories: list[dict[str, Any]] = []
     results: list[dict[str, Any]] = []
@@ -51,8 +52,12 @@ def run_experiment(config: ExperimentConfig) -> dict[str, Any]:
         "seeds": list(config.seeds or []),
         "model": config.model,
         "epochs": config.epochs,
+        "min_epochs": config.min_epochs,
+        "convergence_patience": config.convergence_patience,
+        "convergence_min_delta": config.convergence_min_delta,
+        "target_train_loss": config.target_train_loss,
         "warmup_epochs": config.warmup_epochs,
-        "arms": [arm.name for arm in ARMS],
+        "arms": [arm.name for arm in arms],
         "config": config_to_dict(config),
         "results": results,
         "aggregate": {},
@@ -74,7 +79,7 @@ def run_experiment(config: ExperimentConfig) -> dict[str, Any]:
                 f"train_size={data.train_size} test_size={data.test_size} classes={data.num_classes}",
                 flush=True,
             )
-            for arm in ARMS:
+            for arm in arms:
                 result = run_arm(
                     arm=arm,
                     data=data,
@@ -90,6 +95,16 @@ def run_experiment(config: ExperimentConfig) -> dict[str, Any]:
     metrics["aggregate"] = aggregate_results(results)
     _write_outputs(config, histories, metrics)
     return metrics
+
+
+def selected_arms(config: ExperimentConfig) -> tuple[ArmSpec, ...]:
+    if not config.run_arms:
+        return ARMS
+    by_name = {arm.name: arm for arm in ARMS}
+    unknown = sorted(set(config.run_arms) - set(by_name))
+    if unknown:
+        raise ValueError(f"Unknown run_arms entries: {unknown}")
+    return tuple(by_name[name] for name in config.run_arms)
 
 
 def run_arm(
@@ -113,9 +128,8 @@ def run_arm(
     if arm.noise_warmup:
         _train_noise_model(model, data, config, device, seed, arm.name, histories)
 
-    train_losses = _train_supervised_model(model, data, config, device, seed, arm.name, histories)
+    train_result = _train_supervised_model(model, data, config, device, seed, arm.name, histories)
     test_metrics = evaluate(model, data.test_loader, device, config.ece_bins).to_dict()
-    final_train_loss = train_losses[-1] if train_losses else None
     result = {
         "domain": data.domain,
         "seed": seed,
@@ -125,7 +139,11 @@ def run_arm(
         "noise_warmup": arm.noise_warmup,
         "train_size": data.train_size,
         "test_size": data.test_size,
-        "final_train_loss": final_train_loss,
+        "final_train_loss": train_result["final_train_loss"],
+        "best_train_loss": train_result["best_train_loss"],
+        "stopped_epoch": train_result["stopped_epoch"],
+        "converged": train_result["converged"],
+        "convergence_reason": train_result["convergence_reason"],
         "test": test_metrics,
     }
     print(
@@ -147,13 +165,24 @@ def _train_supervised_model(
     seed: int,
     arm: str,
     histories: list[dict[str, Any]],
-) -> list[float]:
+) -> dict[str, Any]:
     optimizer = AdamW(trainable_parameters(model), lr=config.lr, weight_decay=config.weight_decay)
     scaler = torch.amp.GradScaler("cuda", enabled=config.amp and device.type == "cuda")
     losses: list[float] = []
+    best_loss = float("inf")
+    best_epoch = 0
+    stale_epochs = 0
+    convergence_reason = "max_epochs"
     for epoch in range(1, config.epochs + 1):
         loss = train_supervised_epoch(model, data.train_loader, optimizer, scaler, device, config.amp)
         losses.append(loss)
+        improved = best_loss - loss > config.convergence_min_delta
+        if improved:
+            best_loss = loss
+            best_epoch = epoch
+            stale_epochs = 0
+        else:
+            stale_epochs += 1
         histories.append(
             {
                 "domain": data.domain,
@@ -162,14 +191,43 @@ def _train_supervised_model(
                 "phase": "train",
                 "epoch": epoch,
                 "loss": loss,
+                "best_loss": best_loss,
+                "stale_epochs": stale_epochs,
             }
         )
         print(
             f"[domain={data.domain} seed={seed} arm={arm}] "
-            f"train epoch={epoch}/{config.epochs} loss={loss:.4f}",
+            f"train epoch={epoch}/{config.epochs} loss={loss:.4f} "
+            f"best={best_loss:.4f} stale={stale_epochs}",
             flush=True,
         )
-    return losses
+        can_stop = epoch >= max(1, config.min_epochs)
+        if can_stop and config.target_train_loss is not None and loss <= config.target_train_loss:
+            convergence_reason = f"target_train_loss<={config.target_train_loss}"
+            break
+        if can_stop and config.convergence_patience > 0 and stale_epochs >= config.convergence_patience:
+            convergence_reason = (
+                f"plateau_patience={config.convergence_patience},"
+                f"min_delta={config.convergence_min_delta}"
+            )
+            break
+    final_loss = losses[-1] if losses else None
+    stopped_epoch = len(losses)
+    converged = convergence_reason != "max_epochs"
+    print(
+        f"[domain={data.domain} seed={seed} arm={arm}] "
+        f"train_stop epoch={stopped_epoch}/{config.epochs} reason={convergence_reason} "
+        f"final_loss={final_loss:.4f} best_loss={best_loss:.4f} best_epoch={best_epoch}",
+        flush=True,
+    )
+    return {
+        "final_train_loss": final_loss,
+        "best_train_loss": best_loss,
+        "best_epoch": best_epoch,
+        "stopped_epoch": stopped_epoch,
+        "converged": converged,
+        "convergence_reason": convergence_reason,
+    }
 
 
 def _train_noise_model(
@@ -286,15 +344,13 @@ def aggregate_results(results: list[dict[str, Any]]) -> dict[str, Any]:
                     "mean": mean(values),
                     "std": pstdev(values) if len(values) > 1 else 0.0,
                 }
-            train_losses = [
-                float(item["final_train_loss"])
-                for item in matching
-                if item.get("final_train_loss") is not None
-            ]
-            summary["metrics"]["final_train_loss"] = {
-                "mean": mean(train_losses) if train_losses else None,
-                "std": pstdev(train_losses) if len(train_losses) > 1 else 0.0,
-            }
+            for key in ["final_train_loss", "best_train_loss", "stopped_epoch"]:
+                values = [float(item[key]) for item in matching if item.get(key) is not None]
+                summary["metrics"][key] = {
+                    "mean": mean(values) if values else None,
+                    "std": pstdev(values) if len(values) > 1 else 0.0,
+                }
+            summary["converged_count"] = sum(1 for item in matching if item.get("converged"))
     return aggregate
 
 
@@ -323,7 +379,10 @@ def _write_outputs(
     )
     history_path = config.run_dir / "history.csv"
     with history_path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=["domain", "seed", "arm", "phase", "epoch", "loss"])
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=["domain", "seed", "arm", "phase", "epoch", "loss", "best_loss", "stale_epochs"],
+        )
         writer.writeheader()
         writer.writerows(histories)
 

@@ -19,9 +19,14 @@ class ExperimentConfig:
     num_classes: int = 65
     model: str = "resnet50"
     pretrained_weights: bool = True
+    run_arms: list[str] | None = None
     batch_size: int = 64
     num_workers: int = 8
     epochs: int = 20
+    min_epochs: int = 0
+    convergence_patience: int = 0
+    convergence_min_delta: float = 1e-3
+    target_train_loss: float | None = None
     warmup_epochs: int = 5
     noise_steps_per_epoch: int | None = None
     lr: float = 1e-4
