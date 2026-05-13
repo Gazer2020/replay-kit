@@ -26,10 +26,14 @@ notify:
   enabled: true
   real_send: true
   max_text_chars: 2000
+  use_env_proxy: false
 ```
 
 如果设置了 `REPLAY_KIT_NOTIFY_DRY_RUN=true`，即使 `notify.real_send=true` 且存在 webhook，
 也只会写 `notification_payload.json`，不会真实发送。
+
+飞书发送默认不读取 `http_proxy` / `https_proxy` 等环境代理，避免服务器上的本地代理端口失效时阻断通知。
+只有明确需要让飞书也走环境代理时，才设置 `notify.use_env_proxy=true`。
 
 ## 长消息
 

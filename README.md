@@ -77,4 +77,4 @@ checkpoint 不使用仓库根目录的独立文件夹；如需保存，放在对
 
 ## 飞书通知
 
-远程服务器上设置 `FEISHU_WEBHOOK` 后，还需要实验配置显式设置 `notify.real_send=true` 才会真实发送通知。默认配置只写 dry-run `notification_payload.json`，用于 debug、smoke test 和方法可跑性测试。
+远程服务器上设置 `FEISHU_WEBHOOK` 后，还需要实验配置显式设置 `notify.real_send=true` 才会真实发送通知。默认配置只写 dry-run `notification_payload.json`，用于 debug、smoke test 和方法可跑性测试。飞书发送默认不使用环境代理；确需代理时设置 `notify.use_env_proxy=true`。

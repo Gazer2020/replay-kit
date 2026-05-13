@@ -25,4 +25,5 @@ notify:
   enabled: true
   real_send: false
   max_text_chars: 2000
+  use_env_proxy: false
   dry_run_on_missing_webhook: true

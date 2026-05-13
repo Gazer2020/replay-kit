@@ -115,3 +115,36 @@ def test_notifier_uses_compact_metrics_brief(tmp_path: Path, monkeypatch) -> Non
     assert "预训练" in text
     assert "Art: rand=0.1" in text
     assert "very long summary" not in text
+
+
+def test_real_send_ignores_environment_proxy_by_default(tmp_path: Path, monkeypatch) -> None:
+    run_dir, metadata = make_run_dir(tmp_path)
+    summary_path = generate_summary(run_dir)
+    metadata["summary_path"] = str(summary_path)
+    monkeypatch.setenv("FEISHU_WEBHOOK", "https://open.feishu.cn/open-apis/bot/v2/hook/test")
+    monkeypatch.setenv("https_proxy", "http://127.0.0.1:7897")
+    monkeypatch.delenv("REPLAY_KIT_NOTIFY_DRY_RUN", raising=False)
+    sessions = []
+
+    class Response:
+        def raise_for_status(self) -> None:
+            return None
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.trust_env = True
+            self.posts = []
+            sessions.append(self)
+
+        def post(self, url: str, json: dict, timeout: int) -> Response:
+            self.posts.append((url, json, timeout))
+            return Response()
+
+    monkeypatch.setattr("requests.Session", FakeSession)
+    payload_path = notify(run_dir, metadata, {"enabled": True, "real_send": True})
+    payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    assert payload["dry_run"] is False
+    assert payload["use_env_proxy"] is False
+    assert len(sessions) == 1
+    assert sessions[0].trust_env is False
+    assert sessions[0].posts[0][0].endswith("/test")

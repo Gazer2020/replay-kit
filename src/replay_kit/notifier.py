@@ -18,6 +18,7 @@ def load_dotenv_if_available() -> None:
 
 
 DEFAULT_MAX_TEXT_CHARS = 1200
+DEFAULT_USE_ENV_PROXY = False
 
 
 def read_json_if_exists(path: str | Path) -> dict[str, Any]:
@@ -163,6 +164,7 @@ def notify(
     explicit_dry_run = os.getenv("REPLAY_KIT_NOTIFY_DRY_RUN", "").strip().lower()
     enabled = notify_config.get("enabled", True)
     real_send = truthy(notify_config.get("real_send", False))
+    use_env_proxy = truthy(notify_config.get("use_env_proxy", DEFAULT_USE_ENV_PROXY))
     dry_run = (
         not enabled
         or not real_send
@@ -183,6 +185,7 @@ def notify(
         "dry_run": dry_run,
         "enabled": bool(enabled),
         "real_send": real_send,
+        "use_env_proxy": use_env_proxy,
         "webhook_configured": bool(webhook),
         "event": "finished" if metadata.get("status") == "finished" else "failed",
         "feishu_payload": feishu_payload,
@@ -200,7 +203,9 @@ def notify(
     try:
         import requests
 
-        response = requests.post(webhook, json=feishu_payload, timeout=10)
+        session = requests.Session()
+        session.trust_env = use_env_proxy
+        response = session.post(webhook, json=feishu_payload, timeout=10)
         response.raise_for_status()
     except Exception as exc:
         payload["send_error"] = str(exc)
