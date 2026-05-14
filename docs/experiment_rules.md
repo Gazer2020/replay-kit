@@ -27,15 +27,22 @@ summary、通知、关机等后处理失败时，runner 会追加 `postprocess_e
 
 ## 运行
 
-正式实验只通过 `screen` runner 启动：
+完整实验只通过 `screen` runner 启动，并使用飞书真实通知：
 
 ```bash
-python -m replay_kit.runner launch --method toy_torch --experiment debug
+python -m replay_kit.runner launch --method noise_warmup_da --experiment sample_sar_resnet50_sourceonly
 ```
 
-本地测试可追加 `--wait --timeout 120`。
+本地测试、debug、smoke 和方法可跑性测试可追加 `--wait --timeout 120`，但应保持
+`notify.real_send=false` 且不设置关机。
 
 ## 通知
 
 所有实验都会写 `notification_payload.json`。默认 `notify.real_send=false`，只做 dry-run；
-正式实验如需飞书通知，必须在实验配置中显式设置 `notify.real_send=true`。
+完整实验必须在实验配置中显式设置 `notify.real_send=true`，专门飞书联通测试也可开启真实发送。
+debug、smoke、方法可跑性测试和其他不完整实验不得开启飞书真实通知。
+
+## 关机
+
+关机不是完整实验的默认动作。完整实验如需完成后关机，启动前必须主动询问用户并获得明确确认；
+确认后才可设置 `system.shutdown_on_finish=true`。debug、smoke、方法可跑性测试和其他不完整实验不关机。

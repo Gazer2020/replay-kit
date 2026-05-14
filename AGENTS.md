@@ -11,7 +11,10 @@
 - 修改已有方法前，先确认对应任务文件和配置文件。
 - 失败实验也要保留日志、metadata、summary 和通知 payload。
 - 飞书 webhook 只能通过 `FEISHU_WEBHOOK` 提供；默认 `notify.real_send=false`，debug、smoke 和方法可跑性测试只写 dry-run payload。
-- 只有正式实验或专门飞书联通测试可以设置 `notify.real_send=true` 真实发送。
+- 完整实验默认采用 `screen` runner 和飞书真实通知；正式配置应显式设置 `notify.real_send=true`。
+- debug、smoke、方法可跑性测试和其他不完整实验不使用飞书真实通知，也不关机。
+- 关机不是完整实验的默认动作；只有在完整实验启动前主动询问并获得用户确认后，才可设置 `system.shutdown_on_finish=true`。
+- 新增方法的 summary 指标表格和结论优先写在 `methods/{method_name}/summary.py`，不要在公共 `src/replay_kit/summary.py` 增加方法特例。
 - 每次执行 `git commit` 前必须先调用 `neat-freak`，完成文档/任务状态同步检查后再提交。
 
 ## 新增方法流程

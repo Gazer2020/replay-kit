@@ -8,12 +8,14 @@
 - `random_init_noise_train`：随机初始化 ResNet，先做随机噪声 warmup，再训练和测试。
 - `pretrained_train`：ImageNet 预训练 ResNet，直接训练和测试。
 - `pretrained_noise_train`：ImageNet 预训练 ResNet，先做随机噪声 warmup，再训练和测试。
+- `pretrained_dsan_train`：ImageNet 预训练 ResNet，在源域监督训练的同时用目标域无标签样本做 DSAN 风格 label-aware MMD 对齐。
+- `pretrained_noise_dsan_train`：先做随机噪声 warmup，再做上述 DSAN 风格训练。
 
 默认正式实验会在 OfficeHome 的 `Art`、`Clipart`、`Product`、`Real World` 四个域上分别做固定 seed 的分层 train/test split，跑 3 个 seed，并汇总 accuracy、NLL、ECE、average confidence 和 final train loss。
 
 ## 数据
 
-默认读取：
+OfficeHome 默认读取：
 
 ```text
 data/OfficeHome/
@@ -25,13 +27,31 @@ data/OfficeHome/
 
 本机已按此约定把 `data/OfficeHome` 软链接到 `/root/autodl-tmp/noise-warmup-data/OfficeHome`。debug 配置使用 `FakeData`，不需要真实数据。
 
+SAMPLE SAR source-only 实验读取：
+
+```text
+data/SAMPLE_dataset_public/png_images/decibel/
+  synth/<class>/*.png
+  real/<class>/*.png
+```
+
+其中 `synth` 是模拟 SAR 源域，`real` 是真实 SAR 目标域。该配置使用 ImageNet 预训练
+ResNet50，只比较：
+
+- `pretrained_noise_train`：先 noise warmup，再在 `synth` 的 train split 上监督训练。
+- `pretrained_train`：不做 warmup，直接在 `synth` 的 train split 上监督训练。
+
+评估同时覆盖 `synth->synth` held-out split 和 `synth->real` source-only 目标域预测。输入图像
+保持原始 128x128 内容，不 resize，居中 padding 到 224x224 后送入 ResNet。
+
 ## 运行
 
 ```bash
 python -m replay_kit.runner launch --method noise_warmup_da --experiment debug --wait --timeout 120
 ```
 
-正式实验：OfficeHome 四域、ResNet50、3 seeds，完成 summary 和飞书通知后关机。
+完整实验：OfficeHome 四域、ResNet50、3 seeds，使用 screen runner 和飞书真实通知。
+完成后关机需在启动前单独询问并确认。
 
 ```bash
 python -m replay_kit.runner launch --method noise_warmup_da --experiment officehome_resnet50_3seed
@@ -42,6 +62,27 @@ max epoch，并按 train loss 目标或 plateau 停止。
 
 ```bash
 python -m replay_kit.runner launch --method noise_warmup_da --experiment random_init_convergence
+```
+
+SAMPLE SAR source-only 完整实验：使用 screen runner 和飞书真实通知。
+完成后关机需在启动前单独询问并确认。
+
+```bash
+python -m replay_kit.runner launch --method noise_warmup_da --experiment sample_sar_resnet50_sourceonly
+```
+
+SAMPLE SAR DSAN 5-seed 完整实验：比较 `pretrained_noise_dsan_train` 和
+`pretrained_dsan_train`，使用 5 个 seed，关闭随机水平翻转，DataLoader 单进程，并启用
+deterministic 设置以尽量减小随机性。该实验使用 `real` 作为无标签目标域参与训练。
+
+```bash
+python -m replay_kit.runner launch --method noise_warmup_da --experiment sample_sar_dsan_resnet50_5seed
+```
+
+同一设置在 SAMPLE `qpm` 版本上的完整实验：
+
+```bash
+python -m replay_kit.runner launch --method noise_warmup_da --experiment sample_sar_qpm_dsan_resnet50_5seed
 ```
 
 常用覆盖：

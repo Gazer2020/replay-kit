@@ -11,8 +11,15 @@ class ExperimentConfig:
     data_root: Path = Path("data")
     run_dir: Path = Path("outputs/runs/noise_warmup_da/manual")
     domains: list[str] | None = None
+    sample_variant: str = "decibel"
+    source_domain: str = "synth"
+    target_domain: str = "real"
+    eval_domains: list[str] | None = None
     seeds: list[int] | None = None
     image_size: int = 224
+    transform_mode: str = "resize"
+    padding_fill: int = 0
+    random_horizontal_flip: bool = True
     test_fraction: float = 0.2
     fake_train_size: int = 64
     fake_test_size: int = 32
@@ -31,11 +38,13 @@ class ExperimentConfig:
     noise_steps_per_epoch: int | None = None
     lr: float = 1e-4
     warmup_lr: float = 1e-4
+    dsan_lambda: float = 0.5
     weight_decay: float = 1e-4
     device: str = "auto"
     amp: bool = True
     ece_bins: int = 15
     save_checkpoints: bool = False
+    deterministic: bool = False
 
     def __post_init__(self) -> None:
         if self.domains is None:

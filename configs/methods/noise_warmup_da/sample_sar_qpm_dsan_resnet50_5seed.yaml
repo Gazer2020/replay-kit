@@ -1,0 +1,61 @@
+experiment_name: sample_sar_qpm_dsan_resnet50_5seed
+
+notify:
+  enabled: true
+  real_send: true
+  max_text_chars: 2000
+
+system:
+  shutdown_on_finish: false
+  shutdown_command:
+    - shutdown
+    - -h
+    - now
+
+reproduction_goal: >
+  在 SAMPLE public SAR PNG qpm 版本上，沿用 decibel DSAN 5-seed 实验设置：
+  使用 DSAN 风格 label-aware MMD 对齐，比较实验 3/4 对应的 noise warmup+DSAN 与
+  no warmup+DSAN。synth 为有标签源域，real 为无标签目标域参与训练并作为真实 SAR
+  评估域。为减小随机性，使用 5 个 seed、关闭随机水平翻转、DataLoader 单进程并启用
+  确定性设置。输入不 resize，将原图居中 padding 到 224x224。
+
+noise_warmup_da:
+  dataset: sample_sar
+  data_root: data
+  domains:
+    - synth
+  sample_variant: qpm
+  source_domain: synth
+  target_domain: real
+  eval_domains:
+    - synth
+    - real
+  seeds:
+    - 7
+    - 13
+    - 21
+    - 42
+    - 84
+  run_arms:
+    - pretrained_noise_dsan_train
+    - pretrained_dsan_train
+  image_size: 224
+  transform_mode: pad
+  padding_fill: 0
+  random_horizontal_flip: false
+  num_classes: 10
+  model: resnet50
+  pretrained_weights: true
+  batch_size: 64
+  num_workers: 0
+  epochs: 20
+  warmup_epochs: 5
+  noise_steps_per_epoch: null
+  lr: 0.0001
+  warmup_lr: 0.0001
+  dsan_lambda: 0.5
+  weight_decay: 0.0001
+  amp: true
+  deterministic: true
+  ece_bins: 15
+  save_checkpoints: false

@@ -91,6 +91,7 @@ def test_notifier_uses_compact_metrics_brief(tmp_path: Path, monkeypatch) -> Non
     metrics_path.write_text(
         json.dumps(
             {
+                "method": "noise_warmup_da",
                 "aggregate": {
                     "Art": {
                         "random_init_train": {"metrics": {"accuracy": {"mean": 0.1}}},

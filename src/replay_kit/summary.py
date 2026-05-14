@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 import yaml
 
 from .metadata import read_metadata, update_metadata
-from .paths import repo_path
+from .paths import REPO_ROOT, repo_path
 
 
 def read_json_if_exists(path: str | Path) -> dict[str, Any]:
@@ -36,10 +38,11 @@ def tail_text(path: str | Path, lines: int = 80) -> str:
 
 
 def format_metrics(metrics: dict[str, Any]) -> str:
+    formatter = method_hook(metrics.get("method"), "format_metrics")
+    if formatter:
+        return str(formatter(metrics))
     if not metrics:
         return "- metrics: 未生成"
-    if isinstance(metrics.get("aggregate"), dict):
-        return format_aggregate_metrics(metrics)
     rows = []
     for key in sorted(metrics):
         value = metrics[key]
@@ -50,118 +53,42 @@ def format_metrics(metrics: dict[str, Any]) -> str:
     return "\n".join(rows)
 
 
-def format_aggregate_metrics(metrics: dict[str, Any]) -> str:
-    rows = [
-        f"- dataset: {metrics.get('dataset')}",
-        f"- domains: {metrics.get('domains')}",
-        f"- seeds: {metrics.get('seeds')}",
-        f"- model: {metrics.get('model')}",
-        f"- epochs: {metrics.get('epochs')}",
-        f"- warmup_epochs: {metrics.get('warmup_epochs')}",
-        "",
-        "| domain | arm | n | converged | stopped_epoch | acc | nll | ece | final_train_loss | best_train_loss |",
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
-    ]
-    for domain, arms in metrics["aggregate"].items():
-        for arm, summary in arms.items():
-            metric_summary = summary.get("metrics", {})
-            rows.append(
-                "| "
-                f"{domain} | "
-                f"{arm} | "
-                f"{summary.get('n', '')} | "
-                f"{summary.get('converged_count', '')} | "
-                f"{_fmt_mean_std(metric_summary.get('stopped_epoch'))} | "
-                f"{_fmt_mean_std(metric_summary.get('accuracy'))} | "
-                f"{_fmt_mean_std(metric_summary.get('nll'))} | "
-                f"{_fmt_mean_std(metric_summary.get('ece'))} | "
-                f"{_fmt_mean_std(metric_summary.get('final_train_loss'))} | "
-                f"{_fmt_mean_std(metric_summary.get('best_train_loss'))} |"
-            )
-    return "\n".join(rows)
+_METHOD_MODULE_CACHE: dict[str, ModuleType | None] = {}
 
 
-def _fmt_mean_std(summary: Any) -> str:
-    if not isinstance(summary, dict):
-        return ""
-    mean_value = summary.get("mean")
-    std_value = summary.get("std")
-    if mean_value is None:
-        return ""
-    if isinstance(mean_value, float) and isinstance(std_value, float):
-        return f"{mean_value:.4g} +/- {std_value:.3g}"
-    return str(mean_value)
-
-
-def _aggregate_accuracy(metrics: dict[str, Any], domain: str, arm: str) -> float | None:
-    try:
-        value = metrics["aggregate"][domain][arm]["metrics"]["accuracy"]["mean"]
-    except Exception:
+def load_method_summary_module(method_name: Any) -> ModuleType | None:
+    if not isinstance(method_name, str) or not method_name:
         return None
-    return float(value) if isinstance(value, (float, int)) else None
+    if method_name in _METHOD_MODULE_CACHE:
+        return _METHOD_MODULE_CACHE[method_name]
+    module_path = REPO_ROOT / "methods" / method_name / "summary.py"
+    if not module_path.exists():
+        _METHOD_MODULE_CACHE[method_name] = None
+        return None
+    spec = importlib.util.spec_from_file_location(f"replay_kit_method_summary_{method_name}", module_path)
+    if spec is None or spec.loader is None:
+        _METHOD_MODULE_CACHE[method_name] = None
+        return None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _METHOD_MODULE_CACHE[method_name] = module
+    return module
 
 
-def aggregate_conclusion_lines(metrics: dict[str, Any]) -> list[str]:
-    aggregate = metrics.get("aggregate")
-    if not isinstance(aggregate, dict) or not aggregate:
-        return []
-
-    random_deltas = []
-    pretrained_deltas = []
-    pretrain_gains = []
-    per_domain = []
-    for domain in aggregate:
-        random_base = _aggregate_accuracy(metrics, domain, "random_init_train")
-        random_noise = _aggregate_accuracy(metrics, domain, "random_init_noise_train")
-        pretrained_base = _aggregate_accuracy(metrics, domain, "pretrained_train")
-        pretrained_noise = _aggregate_accuracy(metrics, domain, "pretrained_noise_train")
-        if random_base is not None and random_noise is not None:
-            random_delta = random_noise - random_base
-            random_deltas.append(random_delta)
-        else:
-            random_delta = None
-        if pretrained_base is not None and pretrained_noise is not None:
-            pretrained_delta = pretrained_noise - pretrained_base
-            pretrained_deltas.append(pretrained_delta)
-        else:
-            pretrained_delta = None
-        if random_base is not None and pretrained_base is not None:
-            pretrain_gains.append(pretrained_base - random_base)
-        if random_delta is not None and pretrained_delta is not None:
-            per_domain.append(
-                f"{domain}: random noise delta={random_delta:+.4f}, "
-                f"pretrained noise delta={pretrained_delta:+.4f}"
-            )
-
-    lines = []
-    if pretrain_gains:
-        lines.append(
-            "ImageNet 预训练在所有域上显著优于随机初始化，"
-            f"平均 accuracy 提升 {sum(pretrain_gains) / len(pretrain_gains):+.4f}。"
-        )
-    if random_deltas:
-        random_mean = sum(random_deltas) / len(random_deltas)
-        lines.append(
-            "随机初始化模型加入 noise warmup 后效果不稳定，"
-            f"平均 accuracy 变化 {random_mean:+.4f}。"
-        )
-    if pretrained_deltas:
-        pretrained_mean = sum(pretrained_deltas) / len(pretrained_deltas)
-        lines.append(
-            "预训练模型加入 noise warmup 后没有稳定收益，"
-            f"平均 accuracy 变化 {pretrained_mean:+.4f}。"
-        )
-    if per_domain:
-        lines.append("逐域 noise warmup 影响：" + "；".join(per_domain) + "。")
-    return lines
+def method_hook(method_name: Any, hook_name: str):
+    module = load_method_summary_module(method_name)
+    if module is None:
+        return None
+    hook = getattr(module, hook_name, None)
+    return hook if callable(hook) else None
 
 
 def conclusion_lines(metrics: dict[str, Any], status: str) -> list[str]:
     if status == "failed":
         return ["实验失败，需先处理错误。"]
-    aggregate_lines = aggregate_conclusion_lines(metrics)
-    if aggregate_lines:
-        return ["实验完成。", *aggregate_lines]
+    hook = method_hook(metrics.get("method"), "conclusion_lines")
+    if hook:
+        return list(hook(metrics, status))
     reached_target = metrics.get("reached_target")
     if reached_target is True:
         return ["实验完成，并达到 toy target loss。"]

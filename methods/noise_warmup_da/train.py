@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+# Set before torch is imported through the method package so deterministic CUDA
+# runs can use reproducible CuBLAS kernels when requested by config.
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 
 from noise_warmup_da.config import from_replay_config
 from noise_warmup_da.engine import run_experiment

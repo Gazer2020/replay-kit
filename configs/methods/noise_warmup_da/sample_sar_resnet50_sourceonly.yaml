@@ -1,0 +1,51 @@
+experiment_name: sample_sar_resnet50_sourceonly
+
+notify:
+  enabled: true
+  real_send: true
+  max_text_chars: 2000
+
+system:
+  shutdown_on_finish: false
+  shutdown_command:
+    - shutdown
+    - -h
+    - now
+
+reproduction_goal: >
+  使用 SAMPLE public SAR PNG 数据集的 decibel 版本，以 synth 作为模拟 SAR 源域训练、
+  real 作为真实 SAR 目标域评估。所有 arm 使用 ImageNet 预训练 ResNet50，并比较
+  noise warmup 与直接训练在源域测试和 source-only 目标域预测上的表现。输入不 resize
+  到 224，而是将原图居中 padding 到 224x224。
+
+noise_warmup_da:
+  dataset: sample_sar
+  data_root: data
+  domains:
+    - synth
+  sample_variant: decibel
+  source_domain: synth
+  target_domain: real
+  eval_domains:
+    - synth
+    - real
+  run_arms:
+    - pretrained_noise_train
+    - pretrained_train
+  image_size: 224
+  transform_mode: pad
+  padding_fill: 0
+  num_classes: 10
+  model: resnet50
+  pretrained_weights: true
+  batch_size: 64
+  num_workers: 8
+  epochs: 20
+  warmup_epochs: 5
+  noise_steps_per_epoch: null
+  lr: 0.0001
+  warmup_lr: 0.0001
+  weight_decay: 0.0001
+  amp: true
+  ece_bins: 15
+  save_checkpoints: false

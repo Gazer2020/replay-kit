@@ -37,7 +37,10 @@ python -m replay_kit.runner status --run-dir outputs/runs/toy_torch/debug/<run_i
 python -m replay_kit.runner summarize --run-dir outputs/runs/toy_torch/debug/<run_id>
 ```
 
-所有正式运行都通过 `screen` 启动。`--wait` 只是让当前终端轮询 metadata，方便本地 smoke test 和 CI 风格验证。
+所有完整实验都通过 `screen` 启动，并在实验配置中开启飞书真实通知。`--wait` 只是让当前终端轮询
+metadata，方便本地 smoke test 和 CI 风格验证；这类不完整实验保持飞书 dry-run，且不关机。
+
+完成后关机需要在完整实验启动前主动确认；未经确认不要把关机写成默认实验行为。
 
 ## 输出约定
 
@@ -77,4 +80,4 @@ checkpoint 不使用仓库根目录的独立文件夹；如需保存，放在对
 
 ## 飞书通知
 
-远程服务器上设置 `FEISHU_WEBHOOK` 后，还需要实验配置显式设置 `notify.real_send=true` 才会真实发送通知。默认配置只写 dry-run `notification_payload.json`，用于 debug、smoke test 和方法可跑性测试。飞书发送默认不使用环境代理；确需代理时设置 `notify.use_env_proxy=true`。
+远程服务器上设置 `FEISHU_WEBHOOK` 后，还需要完整实验配置显式设置 `notify.real_send=true` 才会真实发送通知。基础配置只写 dry-run `notification_payload.json`，用于 debug、smoke test、方法可跑性测试和其他不完整实验。飞书发送默认不使用环境代理；确需代理时设置 `notify.use_env_proxy=true`。
